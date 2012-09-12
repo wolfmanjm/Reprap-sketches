@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<todo version="0.1.20">
+    <note priority="medium" time="1346230401">
+        measure thickness
+    </note>
+    <note priority="medium" time="1346230411">
+        prompt to start
+    </note>
+    <note priority="medium" time="1346230423">
+        hit any key to stop
+    </note>
+    <note priority="medium" time="1346230434">
+        menu of things to do
+    </note>
+    <note priority="medium" time="1346230447">
+        go back to home
+    </note>
+</todo>

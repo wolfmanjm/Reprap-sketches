@@ -26,9 +26,10 @@
 // set your max speed here in mm/min
 #define XY_FEED_RATE 1500.0F
 
+
 // set the position of your edges in mm, starts at 0,0
-#define XMAX 130
-#define YMAX 170
+#define XMAX 190
+#define YMAX 150
 
 long zpos= 0;
 long xpos= 0;
@@ -217,10 +218,10 @@ void loop()
 	
 
 	// probe front left
-	float lastz= -1;
+	float lastz= 0;
 	for(int i=0;i<4;i++) {
 		float z= doProbe();
-		if(lastz > -1 && z != lastz) {
+		if(lastz != 0 && z != lastz) {
 			float err= ((lastz-z)*1000)/STEPS_PER_MM;
 			Serial.print("Error= "); Serial.print(err); Serial.println(" um");
 		}
@@ -242,8 +243,14 @@ void loop()
 	move_y(-YMAX);
 	printPos( "Front Right", doProbe() );
 
+        // middle
+        move_y(YMAX/2);
+        move_x(-XMAX/2);
+ 	printPos( "Center", doProbe() );
+       
 	// back home front left
-	move_x(-XMAX);
+	move_x(-XMAX/2);
+        move_y(-YMAX/2);
 	printPos( "Front Left", doProbe() );
 	
 }

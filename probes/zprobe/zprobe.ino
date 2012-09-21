@@ -17,6 +17,29 @@
 #define Z_MIN_PIN          18
 #define Z_MAX_PIN          19
 
+// LCD
+#define BEEPER 33                   // Beeper on AUX-4
+
+#define LCD_PINS_RS 16 
+#define LCD_PINS_ENABLE 17
+#define LCD_PINS_D4 23
+#define LCD_PINS_D5 25 
+#define LCD_PINS_D6 27
+#define LCD_PINS_D7 29
+#define LCD_PINS_RW 39  // set to -1 if not using lcdfast or no r/w
+
+//buttons are directly attached using AUX-2
+#define BTN_EN1 37
+#define BTN_EN2 35
+#define BTN_ENC 31  //the click
+
+#define LCD_WIDTH 20
+#define LCD_HEIGHT 4
+
+// comment out if not using an LCD
+#define USE_LCD
+
+
 // the pin used for the Z probe, I use the Z min limit switch, but any pin can be used
 #define Z_PROBE_PIN Z_MIN_PIN
 
@@ -24,18 +47,65 @@
 #define STEPS_PER_MM 400.0F
 
 // set your max speed here in mm/min
-#define XY_FEED_RATE 1500.0F
+#define XY_FEED_RATE 2500.0F
 
 
 // set the position of your edges in mm, starts at 0,0
-#define XMAX 190
-#define YMAX 150
+#define XMAX 180
+#define YMAX 165
+
+#ifdef USE_LCD
+#include <LiquidCrystalFast.h>
+#if defined(LCD_PINS_RW) && LCD_PINS_RW > -1
+LiquidCrystalFast lcd(LCD_PINS_RS, LCD_PINS_RW, LCD_PINS_ENABLE, LCD_PINS_D4, LCD_PINS_D5,LCD_PINS_D6,LCD_PINS_D7);  //RS,Enable,D4,D5,D6,D7 
+#else
+LiquidCrystalFast lcd(LCD_PINS_RS, LCD_PINS_ENABLE, LCD_PINS_D4, LCD_PINS_D5,LCD_PINS_D6,LCD_PINS_D7);  //RS,Enable,D4,D5,D6,D7 
+#endif
+#endif
 
 long zpos= 0;
 long xpos= 0;
 long ypos= 0;
 float zbase= 0.0;
 
+void beep()
+{
+#ifdef USE_LCD
+  //return;
+#if (BEEPER > -1)
+	{
+		pinMode(BEEPER,OUTPUT);
+		for(int8_t i=0;i<20;i++){
+			digitalWrite(BEEPER,HIGH);
+			delay(5);
+			digitalWrite(BEEPER,LOW);
+			delay(5);
+		}
+	}
+#endif
+#endif
+}
+
+void buttons_init()
+{
+#ifdef USE_LCD
+	pinMode(BTN_EN1,INPUT);
+	pinMode(BTN_EN2,INPUT); 
+	pinMode(BTN_ENC,INPUT); 
+	//pinMode(SDCARDDETECT,INPUT);
+	digitalWrite(BTN_EN1,HIGH);
+	digitalWrite(BTN_EN2,HIGH);
+	digitalWrite(BTN_ENC,HIGH);
+#endif
+}
+
+bool getButton() {
+#ifdef USE_LCD
+	return digitalRead(BTN_ENC) == LOW;
+#else
+	return false;
+#endif
+}
 
 void setup()
 {
@@ -62,15 +132,33 @@ void setup()
 	digitalWrite(Z_STEP_PIN, LOW);
 	digitalWrite(Z_DIR_PIN, LOW);
 
+#ifdef USE_LCD
+	lcd.begin(LCD_WIDTH, LCD_HEIGHT);
+	buttons_init();
+	lcd.clear();
+#endif
+	
 	xpos= ypos= zpos= 0;
 
 }
 
 void waitForKey() {
-	Serial.println("Hit any key to start, hit any key to stop");
+#ifdef USE_LCD
+	lcd.setCursor(0, 0);
+	lcd.print("Click to start");
+#endif
+	
+	Serial.println("Hit any key to start");
 	while (Serial.available() && Serial.read()); // empty buffer
-	while (!Serial.available());                 // wait for data
+	while (!Serial.available()) if(getButton()) break;                 // wait for data
 	while (Serial.available() && Serial.read()); // empty buffer again
+
+#ifdef USE_LCD
+	lcd.clear();
+	lcd.setCursor(0, 0);
+	lcd.print("Probing....");
+#endif
+
 }
 
 bool isProbe() {
@@ -193,9 +281,25 @@ void printPos(const char *str, float z) {
 
 	Serial.print(str); Serial.print(": ");
 // 	Serial.print(x); Serial.print(",");
-// 	Serial.print(y); Serial.print(",");
-	Serial.print(((z-zbase)*1000)/STEPS_PER_MM); // micro meters
+	// 	Serial.print(y); Serial.print(",");
+	float dz= ((z-zbase)*1000)/STEPS_PER_MM;
+	Serial.print(dz); // micro meters
 	Serial.println(" um");
+
+#ifdef USE_LCD
+	if(strcmp(str, "Front Left") == 0)
+		lcd.setCursor(0, 3);
+	else if(strcmp(str, "Front Right") == 0)
+		lcd.setCursor(10, 3);
+	else if(strcmp(str, "Back Left") == 0)
+		lcd.setCursor(0, 1);
+	else if(strcmp(str, "Back Right") == 0)
+		lcd.setCursor(10, 1);
+	else if(strcmp(str, "Center") == 0)
+		lcd.setCursor(5, 2);
+
+	lcd.print(dz);
+#endif
 }
 
 void loop()
@@ -208,6 +312,7 @@ void loop()
 	digitalWrite(X_ENABLE_PIN, HIGH);
 	digitalWrite(Y_ENABLE_PIN, HIGH);
 	digitalWrite(Z_ENABLE_PIN, HIGH);
+
 	waitForKey();
 
 	//enable motors
@@ -219,17 +324,19 @@ void loop()
 
 	// probe front left
 	float lastz= 0;
+	float maxd= 0;
 	for(int i=0;i<4;i++) {
 		float z= doProbe();
 		if(lastz != 0 && z != lastz) {
 			float err= ((lastz-z)*1000)/STEPS_PER_MM;
 			Serial.print("Error= "); Serial.print(err); Serial.println(" um");
+			maxd= max(z, maxd);
 		}
 		lastz= z;
 	}
 	
 	zbase= lastz;
-	printPos("Front Left", zbase);
+	printPos("Front Left", lastz);
 	
 	// back left
 	move_y(YMAX);

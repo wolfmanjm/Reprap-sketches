@@ -1,27 +1,8 @@
 
 // Define pin-assignments
-/*
-#define STEPPING_DDR       DDRD
-#define STEPPING_PORT      PORTD
-#define X_STEP_BIT         2  // Uno Digital Pin 2
-#define Y_STEP_BIT         3  // Uno Digital Pin 3
-#define Z_STEP_BIT         4  // Uno Digital Pin 4
-#define X_DIRECTION_BIT    5  // Uno Digital Pin 5
-#define Y_DIRECTION_BIT    6  // Uno Digital Pin 6
-#define Z_DIRECTION_BIT    7  // Uno Digital Pin 7
 
-#define STEPPERS_DISABLE_DDR    DDRB
-#define STEPPERS_DISABLE_PORT   PORTB
-#define STEPPERS_DISABLE_BIT    0  // Uno Digital Pin 8
-
-#define LIMIT_DDR     DDRB
-#define LIMIT_PIN     PINB
-#define X_LIMIT_BIT   1  // Uno Digital Pin 9
-#define Y_LIMIT_BIT   2  // Uno Digital Pin 10
-#define Z_LIMIT_BIT   3  // Uno Digital Pin 11
-*/
-
-#define GRBL
+#define MARLIN
+//#define GRBL
 
 #ifdef GRBL
 #define X_STEP_PIN 2
@@ -33,17 +14,43 @@
 
 #define Z_LIMIT_PIN 11
 #define XYZ_ENABLE_PIN 8
-#else
-// marlin
 
+#elif defined(MARLIN)
+
+// marlin/ramps
+#define X_STEP_PIN 54
+#define X_DIR_PIN 55
+#define Y_STEP_PIN 60
+#define Y_DIR_PIN 61
+#define Z_STEP_PIN 46
+#define Z_DIR_PIN 48
+
+#define Z_LIMIT_PIN 18
+#define X_ENABLE_PIN       38
+#define Y_ENABLE_PIN       56
+#define Z_ENABLE_PIN       62
+
+#else
+#error "Must define either GRBL or MARLIN"
 #endif
 
 #define STEPS_PER_MM 400.0F
-#define XY_FEED_RATE 800.0F
+#define XY_FEED_RATE 1500.0F
 
 long zpos= 0;
 long xpos= 0;
 long ypos= 0;
+
+void enableMotors(boolean on) {
+#ifdef GRBL
+	digitalWrite(XYZ_ENABLE_PIN, on?LOW:HIGH);
+#else
+	int flg= on?LOW:HIGH;
+	digitalWrite(X_ENABLE_PIN, flg);
+	digitalWrite(Y_ENABLE_PIN, flg);
+	digitalWrite(Z_ENABLE_PIN, flg);
+#endif
+}
 
 void setup()
 {
@@ -55,13 +62,19 @@ void setup()
 	pinMode(Z_DIR_PIN, OUTPUT);
 	
 	pinMode(Z_LIMIT_PIN, INPUT_PULLUP);
+#ifdef GRBL
 	pinMode(XYZ_ENABLE_PIN, OUTPUT);
-
+#else
+	pinMode(X_ENABLE_PIN, OUTPUT);
+	pinMode(Y_ENABLE_PIN, OUTPUT);
+	pinMode(Z_ENABLE_PIN, OUTPUT);
+#endif
+	
 	Serial.begin(9600);
 	Serial.println("Starting z probe... DZ is difference in micrometers...");
 
 	// disable motors
-	digitalWrite(XYZ_ENABLE_PIN, HIGH);
+	enableMotors(false);
 	digitalWrite(Z_STEP_PIN, LOW);
 	digitalWrite(Z_DIR_PIN, LOW);
 
@@ -191,6 +204,8 @@ long doProbe() {
 	return z;
 }
 
+#define XMAX 180.0
+#define YMAX 165.0
 void loop()
 {
 	int delta= 10;
@@ -201,11 +216,11 @@ void loop()
 	bool first= true;
 
 	// disable motors so we can set home
-	digitalWrite(XYZ_ENABLE_PIN, HIGH);
+	enableMotors(false);
 	waitForKey();
 
 	//enable motors
-	digitalWrite(XYZ_ENABLE_PIN, LOW);
+	enableMotors(true);
 	xpos= ypos= zpos= 0;
 	
 	while(1) {
@@ -232,7 +247,7 @@ void loop()
 		Serial.print(y); Serial.print(",");
 		Serial.println(((z1-zbase)*1000)/STEPS_PER_MM); // micro meters
 
-		if(x >= 100.0) {
+		if(x >= XMAX) {
 			if(xdir > 0){
 				move_y(ydir);
 				xdir= -delta;
@@ -251,11 +266,22 @@ void loop()
 			move_x(xdir);
 		}
 		
-		if(y >= 100.0) {
-			ydir= -delta;
-		}else if(y <= 0.0){
-			ydir= delta;
+#if 0
+		// repeat scan backwards
+		if(y >= YMAX) {
+ 			ydir= -delta;
+ 		}else if(y <= 0.0){
+ 			ydir= delta;
 		}
+#else
+		// go home and stop
+		if(y > YMAX){
+			move_y(-y);
+			move_x(-x);
+			break;
+		}
+#endif
+		
 	}
 }
 

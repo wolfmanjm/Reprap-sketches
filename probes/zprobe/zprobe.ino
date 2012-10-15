@@ -17,6 +17,8 @@
 #define Z_MIN_PIN          18
 #define Z_MAX_PIN          19
 
+#define POWER_PIN 12
+
 // LCD
 #define BEEPER 33                   // Beeper on AUX-4
 
@@ -51,8 +53,8 @@
 
 
 // set the position of your edges in mm, starts at 0,0
-#define XMAX 180
-#define YMAX 165
+#define XMAX 160
+#define YMAX 160
 
 #ifdef USE_LCD
 #include <LiquidCrystalFast.h>
@@ -295,6 +297,10 @@ void printPos(const char *str, float z) {
 		lcd.setCursor(0, 1);
 	else if(strcmp(str, "Back Right") == 0)
 		lcd.setCursor(10, 1);
+	else if(strcmp(str, "Center Back") == 0)
+		lcd.setCursor(5, 1);
+	else if(strcmp(str, "Center Front") == 0)
+		lcd.setCursor(5, 3);
 	else if(strcmp(str, "Center") == 0)
 		lcd.setCursor(5, 2);
 
@@ -314,6 +320,11 @@ void loop()
 	digitalWrite(Z_ENABLE_PIN, HIGH);
 
 	waitForKey();
+
+       if(POWER_PIN > 0){
+          pinMode(POWER_PIN, OUTPUT);
+          digitalWrite(POWER_PIN, LOW);
+        }
 
 	//enable motors
 	digitalWrite(X_ENABLE_PIN, LOW);
@@ -338,6 +349,7 @@ void loop()
 	zbase= lastz;
 	printPos("Front Left", lastz);
 	
+#ifdef FOURPOINT
 	// back left
 	move_y(YMAX);
 	printPos( "Back Left", doProbe() );
@@ -359,7 +371,30 @@ void loop()
 	move_x(-XMAX/2);
         move_y(-YMAX/2);
 	printPos( "Front Left", doProbe() );
-	
+#else
+      // three point
+        // front right
+	move_x(XMAX);
+	printPos( "Front Right", doProbe() );
+
+        // middle back
+        move_y(YMAX);
+        move_x(-XMAX/2);
+ 	printPos( "Center Back", doProbe() );
+       
+        // middle front
+        move_y(-YMAX);
+ 	printPos( "Center Front", doProbe() );
+       
+       
+	// back home front left
+	move_x(-XMAX/2);
+	printPos( "Front Left", doProbe() );
+#endif	
+       if(POWER_PIN > 0){
+          pinMode(POWER_PIN, INPUT);
+       }
+
 }
 
 

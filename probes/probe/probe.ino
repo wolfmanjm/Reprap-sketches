@@ -15,6 +15,7 @@
 #define Z_LIMIT_PIN 11
 #define XYZ_ENABLE_PIN 8
 
+#define POWER_PIN -1
 #elif defined(MARLIN)
 
 // marlin/ramps
@@ -29,6 +30,7 @@
 #define X_ENABLE_PIN       38
 #define Y_ENABLE_PIN       56
 #define Z_ENABLE_PIN       62
+#define POWER_PIN 12
 
 #else
 #error "Must define either GRBL or MARLIN"
@@ -204,8 +206,8 @@ long doProbe() {
 	return z;
 }
 
-#define XMAX 180.0
-#define YMAX 165.0
+#define XMAX 160.0
+#define YMAX 160.0
 void loop()
 {
 	int delta= 10;
@@ -215,9 +217,15 @@ void loop()
 	float zbase= 0.0;
 	bool first= true;
 
+           
 	// disable motors so we can set home
 	enableMotors(false);
 	waitForKey();
+
+       if(POWER_PIN > 0){
+          pinMode(POWER_PIN, OUTPUT);
+          digitalWrite(POWER_PIN, LOW);
+        }
 
 	//enable motors
 	enableMotors(true);
@@ -277,12 +285,17 @@ void loop()
 		// go home and stop
 		if(y > YMAX){
 			move_y(-y);
-			move_x(-x);
+			move_x(-x+10);
 			break;
 		}
 #endif
 		
 	}
+
+       if(POWER_PIN > 0){
+          pinMode(POWER_PIN, INPUT);
+       }
+
 }
 
 
